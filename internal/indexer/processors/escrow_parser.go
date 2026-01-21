@@ -23,6 +23,7 @@ func ParseSingleReleaseEscrowArgs(args []xdr.ScVal, factoryContract string, netw
 
 	escrow := &entities.Escrow{
 		FactoryContract: factoryContract,
+		EscrowType:      entities.EscrowTypeSingleRelease,
 	}
 
 	// Parse deployer address (Args[0])
@@ -83,13 +84,13 @@ func ParseSingleReleaseEscrowArgs(args []xdr.ScVal, factoryContract string, netw
 }
 
 func ParseMultiReleaseEscrowArgs(args []xdr.ScVal, factoryContract string, networkPassphrase string) (*entities.Escrow, error) {
-
 	if len(args) < 5 {
 		return nil, fmt.Errorf("insufficient arguments: expected at least 5, got %d", len(args))
 	}
 
 	escrow := &entities.Escrow{
 		FactoryContract: factoryContract,
+		EscrowType:      entities.EscrowTypeMultiRelease,
 	}
 
 	// Parse deployer address (Args[0])
@@ -289,6 +290,8 @@ func parseEscrowData(val xdr.ScVal, escrow *entities.Escrow) error {
 }
 
 // parseEscrowFlags parses the flags map
+// Supports both single-release format (disputed, released, resolved)
+// and multi-release format (approved, disputed, released, resolved)
 func parseEscrowFlags(val xdr.ScVal) (entities.EscrowFlags, error) {
 	entries, err := extractMapFromScVal(val)
 	if err != nil {
@@ -296,6 +299,15 @@ func parseEscrowFlags(val xdr.ScVal) (entities.EscrowFlags, error) {
 	}
 
 	flags := entities.EscrowFlags{}
+
+	// Multi-release specific: approved is inside flags
+	if approvedVal, ok := findInMap(entries, "approved"); ok {
+		approved, err := extractBoolFromScVal(approvedVal)
+		if err != nil {
+			return entities.EscrowFlags{}, fmt.Errorf("parsing approved: %w", err)
+		}
+		flags.Approved = approved
+	}
 
 	if disputedVal, ok := findInMap(entries, "disputed"); ok {
 		disputed, err := extractBoolFromScVal(disputedVal)
@@ -405,6 +417,8 @@ func parseMilestones(val xdr.ScVal) ([]entities.Milestone, error) {
 }
 
 // parseMilestone parses a single milestone map
+// Supports both single-release format (approved, description, evidence, status)
+// and multi-release format (amount, description, evidence, flags, receiver, status)
 func parseMilestone(val xdr.ScVal) (entities.Milestone, error) {
 	entries, err := extractMapFromScVal(val)
 	if err != nil {
@@ -413,6 +427,7 @@ func parseMilestone(val xdr.ScVal) (entities.Milestone, error) {
 
 	milestone := entities.Milestone{}
 
+	// Common fields
 	if descVal, ok := findInMap(entries, "description"); ok {
 		desc, err := extractStringFromScVal(descVal)
 		if err != nil {
@@ -429,6 +444,15 @@ func parseMilestone(val xdr.ScVal) (entities.Milestone, error) {
 		milestone.Status = status
 	}
 
+	if evidenceVal, ok := findInMap(entries, "evidence"); ok {
+		evidence, err := extractStringFromScVal(evidenceVal)
+		if err != nil {
+			return entities.Milestone{}, fmt.Errorf("parsing evidence: %w", err)
+		}
+		milestone.Evidence = evidence
+	}
+
+	// Single-release specific field
 	if approvedVal, ok := findInMap(entries, "approved"); ok {
 		approved, err := extractBoolFromScVal(approvedVal)
 		if err != nil {
@@ -437,12 +461,29 @@ func parseMilestone(val xdr.ScVal) (entities.Milestone, error) {
 		milestone.Approved = approved
 	}
 
-	if evidenceVal, ok := findInMap(entries, "evidence"); ok {
-		evidence, err := extractStringFromScVal(evidenceVal)
+	// Multi-release specific fields
+	if amountVal, ok := findInMap(entries, "amount"); ok {
+		amount, err := extractI128FromScVal(amountVal)
 		if err != nil {
-			return entities.Milestone{}, fmt.Errorf("parsing evidence: %w", err)
+			return entities.Milestone{}, fmt.Errorf("parsing amount: %w", err)
 		}
-		milestone.Evidence = evidence
+		milestone.Amount = amount
+	}
+
+	if flagsVal, ok := findInMap(entries, "flags"); ok {
+		flags, err := parseEscrowFlags(flagsVal)
+		if err != nil {
+			return entities.Milestone{}, fmt.Errorf("parsing flags: %w", err)
+		}
+		milestone.Flags = &flags
+	}
+
+	if receiverVal, ok := findInMap(entries, "receiver"); ok {
+		receiver, err := extractAddressFromScVal(receiverVal)
+		if err != nil {
+			return entities.Milestone{}, fmt.Errorf("parsing receiver: %w", err)
+		}
+		milestone.Receiver = receiver
 	}
 
 	return milestone, nil

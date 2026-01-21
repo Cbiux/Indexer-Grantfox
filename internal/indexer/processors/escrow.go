@@ -73,10 +73,25 @@ func (p *EscrowProcessor) ProcessTransaction(ctx context.Context, op *Transactio
 		return []entities.Escrow{*escrow}, nil
 
 	case "tw_new_multi_release_escrow":
-		// TODO: Implementar parser para multi release escrow
-		log.Ctx(ctx).Infof("Multi Release Escrow detected - not yet implemented")
-		log.Ctx(ctx).Infof("Multi Release Args: %v", invokeArgs.Args)
-		return nil, nil
+		escrow, err := ParseMultiReleaseEscrowArgs(invokeArgs.Args, factoryContractID, p.networkPassphrase)
+		if err != nil {
+			return nil, fmt.Errorf("parsing multi release escrow: %w", err)
+		}
+
+		log.Ctx(ctx).Infof("Multi Release Escrow parsed successfully!")
+		log.Ctx(ctx).Infof("Contract ID (predicted): %s", escrow.ContractID)
+		log.Ctx(ctx).Infof("Deployer: %s", escrow.Deployer)
+		log.Ctx(ctx).Infof("Factory Contract: %s", escrow.FactoryContract)
+		log.Ctx(ctx).Infof("Title: %s", escrow.Title)
+		log.Ctx(ctx).Infof("Description: %s", escrow.Description)
+		log.Ctx(ctx).Infof("EngagementID: %s", escrow.EngagementID)
+		log.Ctx(ctx).Infof("ServiceProvider: %s", escrow.Roles.ServiceProvider)
+		log.Ctx(ctx).Infof("Milestones count: %d", len(escrow.Milestones))
+		for i, m := range escrow.Milestones {
+			log.Ctx(ctx).Infof("  Milestone[%d]: %s, Amount: %d, Receiver: %s", i, m.Description, m.Amount, m.Receiver)
+		}
+
+		return []entities.Escrow{*escrow}, nil
 
 	default:
 		// No es una función que nos interese
