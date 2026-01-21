@@ -47,26 +47,34 @@ func (p *EscrowProcessor) ProcessTransaction(ctx context.Context, op *Transactio
 	// Procesar según la función
 	switch functionName {
 	case "tw_new_single_release_escrow":
-		//return p.processSingleReleaseEscrow(ctx, logger, op, factoryContractID, invokeArgs.Args)
-		log.Ctx(ctx).Infof("Single Release Escrow Finned!")
-		log.Ctx(ctx).Infof("Factory Contract ID: %s", factoryContractID)
-		log.Ctx(ctx).Infof("Escrow Args: %v", invokeArgs.Args)
+		escrow, err := ParseSingleReleaseEscrowArgs(invokeArgs.Args, factoryContractID)
+		if err != nil {
+			return nil, fmt.Errorf("parsing single release escrow: %w", err)
+		}
 
-		// TODO: Implementar el parseo de un slice a una estructura
+		log.Ctx(ctx).Infof("Single Release Escrow parsed successfully!")
+		log.Ctx(ctx).Infof("Factory Contract: %s", escrow.FactoryContract)
+		log.Ctx(ctx).Infof("Title: %s", escrow.Title)
+		log.Ctx(ctx).Infof("Description: %s", escrow.Description)
+		log.Ctx(ctx).Infof("Amount: %d", escrow.Amount)
+		log.Ctx(ctx).Infof("EngagementID: %s", escrow.EngagementID)
+		log.Ctx(ctx).Infof("ServiceProvider: %s", escrow.Roles.ServiceProvider)
+		log.Ctx(ctx).Infof("Receiver: %s", escrow.Roles.Receiver)
+		log.Ctx(ctx).Infof("Milestones: %s", escrow.Milestones[0].Description)
+
+		log.Ctx(ctx).Infof("Args: %v", escrow)
+
+		return []entities.Escrow{*escrow}, nil
 
 	case "tw_new_multi_release_escrow":
-		//return p.processMultiReleaseEscrow(ctx, logger, op, factoryContractID, invokeArgs.Args)
-		log.Ctx(ctx).Infof("Multi Release Escrow Finned!")
-		log.Ctx(ctx).Infof("Factory Contract ID: %s", factoryContractID)
-
-		// TODO: Implementar el parseo de un slice a una estructura
+		// TODO: Implementar parser para multi release escrow
+		log.Ctx(ctx).Infof("Multi Release Escrow detected - not yet implemented")
+		return nil, nil
 
 	default:
 		// No es una función que nos interese
 		return nil, nil
 	}
-
-	return nil, nil
 }
 
 func (p *EscrowProcessor) Name() string {
